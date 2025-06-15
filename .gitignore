@@ -1,0 +1,108 @@
+# Hyperledger Fabric Build Artifacts
+
+# Build outputs
+build/
+*.tar.gz
+*.zip
+
+# Binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go specific
+vendor/
+*.out
+*.test
+*.prof
+coverage.txt
+coverage.html
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+log.txt
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Docker related
+.dockerignore
+docker-compose.override.yml
+
+# Certificate and crypto materials
+crypto-config/
+organizations/
+channel-artifacts/
+system-genesis-block/
+
+# Node.js (for chaincode)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Java (for chaincode)
+target/
+*.class
+*.jar
+*.war
+*.ear
+.settings/
+.project
+.classpath
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test artifacts
+test-results/
+*.xml
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration overrides
+*.local
+local.env
+.env.local
+
+# Backup files
+*.bak
+*.backup
+*~
