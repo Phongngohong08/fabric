@@ -58,6 +58,39 @@ information on getting started using and developing with the fabric, SDK and cha
 
 It's recommended for first-time users to begin by going through the Getting Started section of the documentation in order to gain familiarity with the Hyperledger Fabric components and the basic transaction flow.
 
+## 🔐 StateDB Encryption Enhancement
+
+This Fabric build includes **experimental StateDB encryption functionality** that provides transparent data-at-rest encryption for blockchain state data.
+
+### ✨ Features
+- **AES-256 encryption** for all state data stored in StateDB
+- **Transparent operation** - no chaincode changes required
+- **Automatic encryption/decryption** during Put/Get operations
+- **ENC: prefix identification** for encrypted data
+
+### 📋 Testing
+Comprehensive test suite available to verify encryption functionality:
+
+```bash
+# Quick verification
+./manual_verify.sh
+
+# Basic encryption test
+./test_encryption.sh
+
+# Full simulation demo
+go run statedb_simulation.go
+```
+
+📖 **Detailed documentation**: See [ENCRYPTION_TESTS_README.md](ENCRYPTION_TESTS_README.md)
+
+### ⚠️ Production Notes
+- Current implementation uses hardcoded encryption key for demonstration
+- Production deployments should implement proper key management
+- Consider performance impact for high-throughput scenarios
+
+---
+
 ## Contributing
 
 We welcome contributions to the Hyperledger Fabric project in many forms.

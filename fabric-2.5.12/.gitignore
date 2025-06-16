@@ -25,3 +25,35 @@ TESTS*.xml
 .tox/
 .vagrant/
 .vscode
+
+# Encryption implementation test files
+test_encryption*
+encryption_demo*
+statedb_simulation*
+verify_encryption
+simple_test
+hello
+test_peer
+manual_verify
+run_simple_test
+FINAL_SUMMARY
+
+# Development test binaries
+*_test
+*_demo
+*_simulation
+
+
+# Encryption test binary files (keep source files)
+test_encryption
+encryption_demo
+statedb_simulation
+verify_encryption
+simple_test
+hello
+test_peer
+
+# Keep source files but ignore binaries
+*.go.out
+simple_encryption_test
+

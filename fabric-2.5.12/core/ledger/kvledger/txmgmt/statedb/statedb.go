@@ -7,6 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package statedb
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"errors"
+	"io"
+	"log"
 	"sort"
 
 	"github.com/hyperledger/fabric/core/ledger/internal/version"
@@ -183,6 +190,20 @@ func (batch *UpdateBatch) Get(ns string, key string) *VersionedValue {
 	if !ok {
 		return nil
 	}
+
+	// Giải mã giá trị trước khi trả về
+	if vv != nil {
+		decryptedValue := decryptValue(vv.Value)
+		decryptedMetadata := decryptValue(vv.Metadata)
+
+		// Tạo bản sao với dữ liệu đã giải mã
+		return &VersionedValue{
+			Value:    decryptedValue,
+			Metadata: decryptedMetadata,
+			Version:  vv.Version,
+		}
+	}
+
 	return vv
 }
 
@@ -197,7 +218,12 @@ func (batch *UpdateBatch) PutValAndMetadata(ns string, key string, value []byte,
 	if value == nil {
 		panic("Nil value not allowed. Instead call 'Delete' function")
 	}
-	batch.Update(ns, key, &VersionedValue{value, metadata, version})
+
+	// Mã hóa value và metadata trước khi lưu
+	encryptedValue := encryptValue(value)
+	encryptedMetadata := encryptValue(metadata)
+
+	batch.Update(ns, key, &VersionedValue{encryptedValue, encryptedMetadata, version})
 }
 
 // Delete deletes a Key and associated value
@@ -322,4 +348,109 @@ func (itr *nsIterator) Close() {
 func (itr *nsIterator) GetBookmarkAndClose() string {
 	// do nothing
 	return ""
+}
+
+// EncryptionKey - khóa mã hóa cố định cho demo (trong thực tế nên lưu an toàn)
+var EncryptionKey = []byte("my32digitkey12345678901234567890") // 32 bytes key for AES-256
+
+// pkcs7Padding adds PKCS7 padding to data
+func pkcs7Padding(data []byte, blockSize int) []byte {
+	padding := blockSize - len(data)%blockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(data, padtext...)
+}
+
+// pkcs7Unpadding removes PKCS7 padding from data
+func pkcs7Unpadding(data []byte) ([]byte, error) {
+	length := len(data)
+	if length == 0 {
+		return nil, errors.New("invalid data length")
+	}
+	unpadding := int(data[length-1])
+	if unpadding > aes.BlockSize || unpadding == 0 {
+		return nil, errors.New("invalid padding")
+	}
+	return data[:(length - unpadding)], nil
+}
+
+// aesEncrypt encrypts data using AES CBC
+func aesEncrypt(key, plaintext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add PKCS7 padding
+	plaintext = pkcs7Padding(plaintext, aes.BlockSize)
+
+	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, err
+	}
+
+	mode := cipher.NewCBCEncrypter(block, iv)
+	mode.CryptBlocks(ciphertext[aes.BlockSize:], plaintext)
+
+	return ciphertext, nil
+}
+
+// aesDecrypt decrypts data using AES CBC
+func aesDecrypt(key, ciphertext []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ciphertext) < aes.BlockSize {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+
+	if len(ciphertext)%aes.BlockSize != 0 {
+		return nil, errors.New("ciphertext is not a multiple of the block size")
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	mode.CryptBlocks(ciphertext, ciphertext)
+
+	// Remove PKCS7 padding
+	return pkcs7Unpadding(ciphertext)
+}
+
+// encryptValue mã hóa giá trị nếu không nil
+func encryptValue(value []byte) []byte {
+	if value == nil {
+		return nil
+	}
+
+	encrypted, err := aesEncrypt(EncryptionKey, value)
+	if err != nil {
+		log.Printf("Encryption failed: %v", err)
+		return value // fallback to original value
+	}
+
+	// Thêm prefix để đánh dấu đây là dữ liệu đã mã hóa
+	return append([]byte("ENC:"), encrypted...)
+}
+
+// decryptValue giải mã giá trị nếu có prefix ENC:
+func decryptValue(value []byte) []byte {
+	if value == nil {
+		return nil
+	}
+
+	// Kiểm tra prefix ENC:
+	if len(value) > 4 && string(value[:4]) == "ENC:" {
+		decrypted, err := aesDecrypt(EncryptionKey, value[4:])
+		if err != nil {
+			log.Printf("Decryption failed: %v", err)
+			return value // fallback to original value
+		}
+		return decrypted
+	}
+
+	return value // không có mã hóa, trả về nguyên bản
 }
