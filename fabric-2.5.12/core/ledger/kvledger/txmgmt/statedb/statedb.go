@@ -6,15 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 package statedb
 
+/*
+#cgo CFLAGS: -I.
+#cgo LDFLAGS: -L. -lssl -lcrypto
+#include "encryption.h"
+#include <stdlib.h>
+*/
+import "C"
 import (
-	"bytes"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"errors"
-	"io"
 	"log"
 	"sort"
+	"unsafe"
 
 	"github.com/hyperledger/fabric/core/ledger/internal/version"
 	"github.com/hyperledger/fabric/core/ledger/util"
@@ -350,93 +352,38 @@ func (itr *nsIterator) GetBookmarkAndClose() string {
 	return ""
 }
 
-// EncryptionKey - khóa mã hóa cố định cho demo (trong thực tế nên lưu an toàn)
-var EncryptionKey = []byte("my32digitkey12345678901234567890") // 32 bytes key for AES-256
-
-// pkcs7Padding adds PKCS7 padding to data
-func pkcs7Padding(data []byte, blockSize int) []byte {
-	padding := blockSize - len(data)%blockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(data, padtext...)
-}
-
-// pkcs7Unpadding removes PKCS7 padding from data
-func pkcs7Unpadding(data []byte) ([]byte, error) {
-	length := len(data)
-	if length == 0 {
-		return nil, errors.New("invalid data length")
-	}
-	unpadding := int(data[length-1])
-	if unpadding > aes.BlockSize || unpadding == 0 {
-		return nil, errors.New("invalid padding")
-	}
-	return data[:(length - unpadding)], nil
-}
-
-// aesEncrypt encrypts data using AES CBC
-func aesEncrypt(key, plaintext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add PKCS7 padding
-	plaintext = pkcs7Padding(plaintext, aes.BlockSize)
-
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-
-	mode := cipher.NewCBCEncrypter(block, iv)
-	mode.CryptBlocks(ciphertext[aes.BlockSize:], plaintext)
-
-	return ciphertext, nil
-}
-
-// aesDecrypt decrypts data using AES CBC
-func aesDecrypt(key, ciphertext []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("ciphertext too short")
-	}
-
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	if len(ciphertext)%aes.BlockSize != 0 {
-		return nil, errors.New("ciphertext is not a multiple of the block size")
-	}
-
-	mode := cipher.NewCBCDecrypter(block, iv)
-	mode.CryptBlocks(ciphertext, ciphertext)
-
-	// Remove PKCS7 padding
-	return pkcs7Unpadding(ciphertext)
-}
-
-// encryptValue mã hóa giá trị nếu không nil
+// encryptValue mã hóa giá trị sử dụng hàm C
 func encryptValue(value []byte) []byte {
 	if value == nil {
 		return nil
 	}
 
-	encrypted, err := aesEncrypt(EncryptionKey, value)
-	if err != nil {
-		log.Printf("Encryption failed: %v", err)
+	// Tạo buffer cho ciphertext (có thể lớn hơn plaintext do padding)
+	ciphertextLen := len(value) + 32 // Thêm padding cho AES block size
+	ciphertext := make([]byte, ciphertextLen)
+
+	// Chuyển đổi Go slice thành C pointer
+	cPlaintext := (*C.uchar)(unsafe.Pointer(&value[0]))
+	cCiphertext := (*C.uchar)(unsafe.Pointer(&ciphertext[0]))
+	cCiphertextLen := C.int(0)
+
+	// Gọi hàm mã hóa C
+	result := C.encrypt_aes_cbc(cPlaintext, C.int(len(value)), cCiphertext, &cCiphertextLen)
+
+	if result != 0 {
+		log.Printf("Encryption failed with C function")
 		return value // fallback to original value
 	}
 
 	// Thêm prefix để đánh dấu đây là dữ liệu đã mã hóa
-	return append([]byte("ENC:"), encrypted...)
+	encryptedData := make([]byte, 4+int(cCiphertextLen))
+	copy(encryptedData[:4], []byte("ENC:"))
+	copy(encryptedData[4:], ciphertext[:cCiphertextLen])
+
+	return encryptedData
 }
 
-// decryptValue giải mã giá trị nếu có prefix ENC:
+// decryptValue giải mã giá trị sử dụng hàm C
 func decryptValue(value []byte) []byte {
 	if value == nil {
 		return nil
@@ -444,12 +391,26 @@ func decryptValue(value []byte) []byte {
 
 	// Kiểm tra prefix ENC:
 	if len(value) > 4 && string(value[:4]) == "ENC:" {
-		decrypted, err := aesDecrypt(EncryptionKey, value[4:])
-		if err != nil {
-			log.Printf("Decryption failed: %v", err)
+		encryptedData := value[4:]
+
+		// Tạo buffer cho plaintext
+		plaintextLen := len(encryptedData)
+		plaintext := make([]byte, plaintextLen)
+
+		// Chuyển đổi Go slice thành C pointer
+		cCiphertext := (*C.uchar)(unsafe.Pointer(&encryptedData[0]))
+		cPlaintext := (*C.uchar)(unsafe.Pointer(&plaintext[0]))
+		cPlaintextLen := C.int(0)
+
+		// Gọi hàm giải mã C
+		result := C.decrypt_aes_cbc(cCiphertext, C.int(len(encryptedData)), cPlaintext, &cPlaintextLen)
+
+		if result != 0 {
+			log.Printf("Decryption failed with C function")
 			return value // fallback to original value
 		}
-		return decrypted
+
+		return plaintext[:cPlaintextLen]
 	}
 
 	return value // không có mã hóa, trả về nguyên bản
