@@ -10,7 +10,7 @@ echo "=== Hyperledger Fabric Build Script ==="
 echo "Starting build process..."
 
 # Navigate to fabric source directory
-FABRIC_DIR="/home/phongnh/go/src/github.com/Phongngohong08/fabric/fabric-2.5.12"
+FABRIC_DIR="/home/phongnh/fabric/fabric-2.5.12"
 cd "$FABRIC_DIR"
 
 echo "📁 Current directory: $(pwd)"
@@ -45,7 +45,7 @@ if [ -d "build/bin" ] && [ "$(ls -A build/bin)" ]; then
     ./build/bin/configtxgen --help | head -5
     
     # Copy binaries to fabric-samples/bin/
-    FABRIC_SAMPLES_DIR="/home/phongnh/go/src/github.com/Phongngohong08/fabric/fabric-samples"
+    FABRIC_SAMPLES_DIR="/home/phongnh/fabric/fabric-samples"
     if [ -d "$FABRIC_SAMPLES_DIR/bin" ]; then
         echo ""
         echo "📋 Copying new binaries to fabric-samples/bin/..."

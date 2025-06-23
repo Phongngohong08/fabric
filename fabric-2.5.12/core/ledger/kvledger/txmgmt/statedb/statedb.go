@@ -14,9 +14,7 @@ package statedb
 */
 import "C"
 import (
-	"log"
 	"sort"
-	"unsafe"
 
 	"github.com/hyperledger/fabric/core/ledger/internal/version"
 	"github.com/hyperledger/fabric/core/ledger/util"
@@ -195,8 +193,8 @@ func (batch *UpdateBatch) Get(ns string, key string) *VersionedValue {
 
 	// Giải mã giá trị trước khi trả về
 	if vv != nil {
-		decryptedValue := decryptValue(vv.Value)
-		decryptedMetadata := decryptValue(vv.Metadata)
+		decryptedValue := DecryptValue(vv.Value, ns, key)
+		decryptedMetadata := DecryptValue(vv.Metadata, ns, key)
 
 		// Tạo bản sao với dữ liệu đã giải mã
 		return &VersionedValue{
@@ -222,8 +220,8 @@ func (batch *UpdateBatch) PutValAndMetadata(ns string, key string, value []byte,
 	}
 
 	// Mã hóa value và metadata trước khi lưu
-	encryptedValue := encryptValue(value)
-	encryptedMetadata := encryptValue(metadata)
+	encryptedValue := EncryptValue(value, ns, key)
+	encryptedMetadata := EncryptValue(metadata, ns, key)
 
 	batch.Update(ns, key, &VersionedValue{encryptedValue, encryptedMetadata, version})
 }
@@ -350,68 +348,4 @@ func (itr *nsIterator) Close() {
 func (itr *nsIterator) GetBookmarkAndClose() string {
 	// do nothing
 	return ""
-}
-
-// encryptValue mã hóa giá trị sử dụng hàm C
-func encryptValue(value []byte) []byte {
-	if value == nil {
-		return nil
-	}
-
-	// Tạo buffer cho ciphertext (có thể lớn hơn plaintext do padding)
-	ciphertextLen := len(value) + 32 // Thêm padding cho AES block size
-	ciphertext := make([]byte, ciphertextLen)
-
-	// Chuyển đổi Go slice thành C pointer
-	cPlaintext := (*C.uchar)(unsafe.Pointer(&value[0]))
-	cCiphertext := (*C.uchar)(unsafe.Pointer(&ciphertext[0]))
-	cCiphertextLen := C.int(0)
-
-	// Gọi hàm mã hóa C
-	result := C.encrypt_aes_cbc(cPlaintext, C.int(len(value)), cCiphertext, &cCiphertextLen)
-
-	if result != 0 {
-		log.Printf("Encryption failed with C function")
-		return value // fallback to original value
-	}
-
-	// Thêm prefix để đánh dấu đây là dữ liệu đã mã hóa
-	encryptedData := make([]byte, 4+int(cCiphertextLen))
-	copy(encryptedData[:4], []byte("ENC:"))
-	copy(encryptedData[4:], ciphertext[:cCiphertextLen])
-
-	return encryptedData
-}
-
-// decryptValue giải mã giá trị sử dụng hàm C
-func decryptValue(value []byte) []byte {
-	if value == nil {
-		return nil
-	}
-
-	// Kiểm tra prefix ENC:
-	if len(value) > 4 && string(value[:4]) == "ENC:" {
-		encryptedData := value[4:]
-
-		// Tạo buffer cho plaintext
-		plaintextLen := len(encryptedData)
-		plaintext := make([]byte, plaintextLen)
-
-		// Chuyển đổi Go slice thành C pointer
-		cCiphertext := (*C.uchar)(unsafe.Pointer(&encryptedData[0]))
-		cPlaintext := (*C.uchar)(unsafe.Pointer(&plaintext[0]))
-		cPlaintextLen := C.int(0)
-
-		// Gọi hàm giải mã C
-		result := C.decrypt_aes_cbc(cCiphertext, C.int(len(encryptedData)), cPlaintext, &cPlaintextLen)
-
-		if result != 0 {
-			log.Printf("Decryption failed with C function")
-			return value // fallback to original value
-		}
-
-		return plaintext[:cPlaintextLen]
-	}
-
-	return value // không có mã hóa, trả về nguyên bản
 }

@@ -433,7 +433,7 @@ func (vdb *VersionedDB) LoadCommittedVersions(keys []*statedb.CompositeKey) erro
 		for _, keyMetadata := range nsMetadata {
 			// TODO - why would version be ever zero if loaded from db?
 			if len(keyMetadata.Version) != 0 {
-				version, _, err := decodeVersionAndMetadata(keyMetadata.Version)
+				version, _, err := decodeVersionAndMetadata(keyMetadata.Version, ns, keyMetadata.ID)
 				if err != nil {
 					return err
 				}

@@ -121,7 +121,7 @@ func (vdb *versionedDB) GetState(namespace string, key string) (*statedb.Version
 	if dbVal == nil {
 		return nil, nil
 	}
-	return decodeValue(dbVal)
+	return decodeValue(dbVal, namespace, key)
 }
 
 // GetVersion implements method in VersionedDB interface
@@ -194,7 +194,7 @@ func (vdb *versionedDB) ApplyUpdates(batch *statedb.UpdateBatch, height *version
 			if vv.Value == nil {
 				dbBatch.Delete(dataKey)
 			} else {
-				encodedVal, err := encodeValue(vv)
+				encodedVal, err := encodeValue(vv, ns, k)
 				if err != nil {
 					return err
 				}
@@ -256,7 +256,7 @@ func (vdb *versionedDB) importState(itr statedb.FullScanIterator, savepoint *ver
 			break
 		}
 		dbKey := encodeDataKey(versionedKV.Namespace, versionedKV.Key)
-		dbValue, err := encodeValue(versionedKV.VersionedValue)
+		dbValue, err := encodeValue(versionedKV.VersionedValue, versionedKV.Namespace, versionedKV.Key)
 		if err != nil {
 			return err
 		}
@@ -319,7 +319,7 @@ func (scanner *kvScanner) Next() (*statedb.VersionedKV, error) {
 	dbValCopy := make([]byte, len(dbVal))
 	copy(dbValCopy, dbVal)
 	_, key := decodeDataKey(dbKey)
-	vv, err := decodeValue(dbValCopy)
+	vv, err := decodeValue(dbValCopy, scanner.namespace, key)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +377,7 @@ func (s *fullDBScanner) Next() (*statedb.VersionedKV, error) {
 			Key:       key,
 		}
 
-		versionedVal, err := decodeValue(s.dbItr.Value())
+		versionedVal, err := decodeValue(s.dbItr.Value(), ns, key)
 		if err != nil {
 			return nil, err
 		}

@@ -11,16 +11,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/core/ledger/internal/version"
+	"github.com/hyperledger/fabric/core/ledger/kvledger/txmgmt/statedb"
 	"github.com/pkg/errors"
 )
 
-func encodeVersionAndMetadata(version *version.Height, metadata []byte) (string, error) {
+func encodeVersionAndMetadata(version *version.Height, metadata []byte, ns, key string) (string, error) {
 	if version == nil {
 		return "", errors.New("nil version not supported")
 	}
+	encryptedMetadata := statedb.EncryptValue(metadata, ns, key)
 	msg := &VersionAndMetadata{
 		Version:  version.ToBytes(),
-		Metadata: metadata,
+		Metadata: encryptedMetadata,
 	}
 	msgBytes, err := proto.Marshal(msg)
 	if err != nil {
@@ -29,7 +31,7 @@ func encodeVersionAndMetadata(version *version.Height, metadata []byte) (string,
 	return base64.StdEncoding.EncodeToString(msgBytes), nil
 }
 
-func decodeVersionAndMetadata(encodedstr string) (*version.Height, []byte, error) {
+func decodeVersionAndMetadata(encodedstr string, ns, key string) (*version.Height, []byte, error) {
 	persistedVersionAndMetadata, err := base64.StdEncoding.DecodeString(encodedstr)
 	if err != nil {
 		return nil, nil, err
@@ -42,5 +44,6 @@ func decodeVersionAndMetadata(encodedstr string) (*version.Height, []byte, error
 	if err != nil {
 		return nil, nil, err
 	}
-	return ver, versionAndMetadata.Metadata, nil
+	decryptedMetadata := statedb.DecryptValue(versionAndMetadata.Metadata, ns, key)
+	return ver, decryptedMetadata, nil
 }

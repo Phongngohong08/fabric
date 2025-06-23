@@ -9,7 +9,7 @@ set -e
 echo "=== Hyperledger Fabric Test Network Startup Script ==="
 
 # Navigate to test network directory
-TEST_NETWORK_DIR="/home/phongnh/go/src/github.com/Phongngohong08/fabric/fabric-samples/test-network"
+TEST_NETWORK_DIR="/home/phongnh/fabric/fabric-samples/test-network"
 cd "$TEST_NETWORK_DIR"
 
 echo "📁 Current directory: $(pwd)"

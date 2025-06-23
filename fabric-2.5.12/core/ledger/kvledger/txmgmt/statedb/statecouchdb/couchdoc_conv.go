@@ -71,7 +71,7 @@ func couchDocToKeyValue(doc *couchDoc) (*keyValue, error) {
 	if err != nil {
 		return nil, err
 	}
-	version, metadata, err := decodeVersionAndMetadata(docFields.versionAndMetadata)
+	version, metadata, err := decodeVersionAndMetadata(docFields.versionAndMetadata, "", docFields.id)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func keyValToCouchDoc(kv *keyValue) (*couchDoc, error) {
 		kvtype = kvTypeAttachment
 	}
 
-	verAndMetadata, err := encodeVersionAndMetadata(version, metadata)
+	verAndMetadata, err := encodeVersionAndMetadata(version, metadata, "", key)
 	if err != nil {
 		return nil, err
 	}

@@ -45,9 +45,9 @@ func TestEncodeDecodeVersionedValues(t *testing.T) {
 }
 
 func testEncodeDecodeVersionedValues(t *testing.T, v *statedb.VersionedValue) {
-	encodedVal, err := encodeValue(v)
+	encodedVal, err := encodeValue(v, "test", "key")
 	require.NoError(t, err)
-	decodedVal, err := decodeValue(encodedVal)
+	decodedVal, err := decodeValue(encodedVal, "test", "key")
 	require.NoError(t, err)
 	require.Equal(t, v, decodedVal)
 }

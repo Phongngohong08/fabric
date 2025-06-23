@@ -33,7 +33,8 @@ RUN apt update && apt install -y \
     git \
     gcc \
     curl \
-    make
+    make \
+    libssl-dev
 
 RUN curl -sL https://go.dev/dl/go${GO_VER}.${TARGETOS}-${TARGETARCH}.tar.gz | tar zxf - -C /usr/local
 ENV PATH="/usr/local/go/bin:$PATH"
