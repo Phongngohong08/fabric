@@ -176,6 +176,9 @@ docker logs -f peer0.org1.example.com | grep DECRYPT
 
 # Hoặc kiểm tra toàn bộ log
 docker logs -f peer0.org1.example.com
+
+# Nếu peer ghi log ra file riêng (ví dụ /root/state_encryption.log)
+docker exec peer0.org1.example.com cat /root/state_encryption.log
 ```
 > Các hàm mã hóa/giải mã đã được thêm log, ví dụ:  
 > `[ENCRYPT] EncryptValue called, input len=...`  
